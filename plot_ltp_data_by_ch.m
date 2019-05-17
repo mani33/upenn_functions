@@ -5,14 +5,14 @@ function plot_ltp_data_by_ch(key_pre,key_post,key_nextday_baseline,varargin)
 
 args.motion_idx_quantiles = [0 0.95];
 args.motion_th_quantile = 0.5;
-args.use_all_data = false;
+args.use_all_data = true;
 args.max_ch = inf;
 args.invert_time = 0;
 args.rec_gap = 5; % gap between pre and post session
 args.overlay_motion = 0;
 args.overlay_tdr = 0;
 args.yl = [50 175];
-args.plot_corr = 1;
+args.plot_corr = 0;
 args.plot_his = 0;
 args.tit = '';
 args.plot_errorbar = 0;
@@ -24,9 +24,10 @@ args.save_dir = '';
 args.ch_sel_method = 'ltp_magnitude';
 args.keep_just_motion = false;
 args.slope_bw = 5;
-args.use_pre_event_motion = 1;
-args.use_pre_event_tdr = 1;
+args.use_pre_event_motion = 0;
+args.use_pre_event_tdr = 0;
 args.pre_event_win = 5;
+args.plot_pre_event_data = 0;
 args = parseVarArgs(args,varargin{:});
 
 ckeys_pre = fetch(cstim.SlopeEg & cstim.FepspSlope(key_pre,'smooth_method_num = 0'));
@@ -49,7 +50,7 @@ else
 end
 
 figure
-set(gcf,'Position',[1991,311,1592,956])
+set(gcf,'Position',[1966,249,1617,1108])
 nChKeys = min(length(ckeys_pre),args.max_ch);
 
 % Plotting related
@@ -59,13 +60,17 @@ tdrCol = 0;
 if args.plot_all_chan_tdr
     tdrCol = 6;
 end
+pre_ev_tdr = 0;
+if args.plot_pre_event_data
+    pre_ev_tdr = 1;
+end
 npcol = respCol + traceNhisCol + tdrCol;
-nprow = nChKeys + 4;
+nprow = nChKeys + pre_ev_tdr + 2;
 day2plot = double(~isempty(key_nextday_baseline))*2;
 gs = [nprow npcol+day2plot];
 
 % raw slope color/marker size
-sraw.col = [0.9 0.9 1];
+sraw.col = [0.4 0.5 1];
 sraw.ms = 3;
 sbin.col = 'k';
 sbin.ms = 3;
@@ -104,7 +109,7 @@ atddata = struct;
 
 hh = nan(1,1);
 if ~isempty(ckeys_post)
-args.motion_idx_bound = get_common_motion_idx_bound(ckeys_pre(1),ckeys_post(1),args);
+    args.motion_idx_bound = get_common_motion_idx_bound(ckeys_pre(1),ckeys_post(1),args);
 else
     args.motion_idx_bound = get_common_motion_idx_bound(ckeys_pre(1),[],args);
 end
@@ -112,7 +117,7 @@ end
 for iCh = 1:nChKeys
     ckey_pre = ckeys_pre(iCh);
     tit_str = sprintf('ch %u', ckey_pre.chan_num);
-
+    
     h = nan;
     avgStr = cell(1,1);
     
@@ -125,12 +130,14 @@ for iCh = 1:nChKeys
     plot_slopes(sdata1,sraw,sbin,sfr,sfb,args.plot_errorbar)
     xmin = sdata1.raw_t(1);
     xmax = sdata1.raw_t(end);
-    
+    grid on
+    grid minor
     % Plot avarage response
     xh = msubplot(iCh,respCol+day2plot+(1:2),gs);
     h(1) = plot_avg_trace(ckey_pre,xh,precol,args,pre_ev_mov_idx1);
     cxlabel('Time (ms)',iCh==1)
     avgStr{1} = 'pre';
+   
     % Post session
     sdata2.bin_val = [];
     sdata2.bin_t = [];
@@ -148,6 +155,8 @@ for iCh = 1:nChKeys
         % Plot average response
         h(2) = plot_avg_trace(ckey_post,xh,postcol,args,pre_ev_mov_idx2);
         avgStr{2} = 'post';
+        grid on
+        grid minor
     end
     
     %% Next day baseline
@@ -183,7 +192,8 @@ for iCh = 1:nChKeys
     title(tit_str)
     cylabel('Normalized fepsp slope',iCh==1)
     box off
-    grid off
+    grid on
+    grid minor
     plot([0 0],ylim,'r--')
     xli = xlim;
     % Save data for correlations
@@ -195,7 +205,8 @@ for iCh = 1:nChKeys
     % Save tdratio data for plotting the 'best' one later
     atddata(iCh).tddata1 = tddata1;
     atddata(iCh).tddata2 = tddata2;
-    
+     grid on
+    grid minor
     % Plot histology
     if args.plot_his
         % Recording electrode
@@ -225,7 +236,7 @@ if ~isempty(mdata1.bin_val)
     % Pre
     plot(mdata1.raw_t, mdata1.raw_val,'O','color',mraw.col,'markersize',mraw.ms,'markerfacecolor',mraw.col)
     hold on
-   
+    
     % Post
     if ~isempty(ckeys_post)&& ~isempty(mdata2)
         plot(mdata2.raw_t, mdata2.raw_val,'O','color',mraw.col,'markersize',mraw.ms,'markerfacecolor',mraw.col)
@@ -235,47 +246,50 @@ if ~isempty(mdata1.bin_val)
     ylabel('Motion Index','color',olaym.col)
     box off
     xlim(xli)
-    
-    % Motion thresholded data
-    iCh = iCh + 1;
-    msubplot(iCh,1:respCol,gs);
-    mv = pre_ev_mov_idx1;
-    mv(mv < args.motion_idx_bound(1) | mv > args.motion_idx_bound(2)) = nan;
-    plot(sdata1.raw_t,pre_ev_mov_idx1,'k.','markersize',12)
-    hold on
-    plot(sdata1.raw_t,mv,'r.','markersize',12)
-    ylabel('Pre-stim motion idx')
-    if ~isempty(ckeys_post)&& ~isempty(mdata2)
+    grid on
+    grid minor
+    if args.plot_pre_event_data
         % Motion thresholded data
-        mv = pre_ev_mov_idx2;
+        iCh = iCh + 1;
+        msubplot(iCh,1:respCol,gs);
+        mv = pre_ev_mov_idx1;
         mv(mv < args.motion_idx_bound(1) | mv > args.motion_idx_bound(2)) = nan;
-        plot(sdata2.raw_t,pre_ev_mov_idx2,'k.','markersize',12)
+        plot(sdata1.raw_t,pre_ev_mov_idx1,'k.','markersize',12)
         hold on
-        plot(sdata2.raw_t,mv,'r.','markersize',12)
-        mtop = quantile(pre_ev_mov_idx2,0.95);
-        ylim([-0.05*mtop mtop])
-        box off
-        xlim(xli)
-    end
-    
-    % Day2
-    if ~isempty(ckeys_day2) && ~isempty(mdata3)
-        msubplot(iCh,(1:2)+respCol,gs);
-        plot(mdata3.raw_t, mdata3.raw_val,'O','color',mraw.col,'markersize',mraw.ms,'markerfacecolor',mraw.col)
-        box off
-        axis tight
-        ylim([-0.05*mtop mtop])
-     
-        % Motion thresholded data
-        mv = pre_ev_mov_idx3;
-        mv(mv < args.motion_idx_bound(1) | mv > args.motion_idx_bound(2)) = nan;
-        plot(sdata3.raw_t,pre_ev_mov_idx3,'k.','markersize',12)
-        hold on
-        plot(sdata3.raw_t,mv,'r.','markersize',12)
-        mtop = quantile(pre_ev_mov_idx3,0.95);
-        ylim([-0.05*mtop mtop])
-        box off
-        xlim(xli)
+        plot(sdata1.raw_t,mv,'r.','markersize',12)
+        ylabel('Pre-stim motion idx')
+        if ~isempty(ckeys_post)&& ~isempty(mdata2)
+            % Motion thresholded data
+            mv = pre_ev_mov_idx2;
+            mv(mv < args.motion_idx_bound(1) | mv > args.motion_idx_bound(2)) = nan;
+            plot(sdata2.raw_t,pre_ev_mov_idx2,'k.','markersize',12)
+            hold on
+            plot(sdata2.raw_t,mv,'r.','markersize',12)
+            mtop = quantile(pre_ev_mov_idx2,0.95);
+            ylim([-0.05*mtop mtop])
+            box off
+            xlim(xli)
+        end
+        
+        % Day2
+        if ~isempty(ckeys_day2) && ~isempty(mdata3)
+            msubplot(iCh,(1:2)+respCol,gs);
+            plot(mdata3.raw_t, mdata3.raw_val,'O','color',mraw.col,'markersize',mraw.ms,'markerfacecolor',mraw.col)
+            box off
+            axis tight
+            ylim([-0.05*mtop mtop])
+            
+            % Motion thresholded data
+            mv = pre_ev_mov_idx3;
+            mv(mv < args.motion_idx_bound(1) | mv > args.motion_idx_bound(2)) = nan;
+            plot(sdata3.raw_t,pre_ev_mov_idx3,'k.','markersize',12)
+            hold on
+            plot(sdata3.raw_t,mv,'r.','markersize',12)
+            mtop = quantile(pre_ev_mov_idx3,0.95);
+            ylim([-0.05*mtop mtop])
+            box off
+            xlim(xli)
+        end
     end
     % Overlay motion
     if args.overlay_motion
@@ -292,7 +306,8 @@ hh(iCh) = msubplot(iCh,1:respCol,gs);
 % Pre
 plot(tddata1.raw_t, tddata1.raw_val,'O','color',tdraw.col,'markersize',tdraw.ms,'markerfacecolor',tdraw.col)
 hold on
-
+grid on
+grid minor
 % Post
 
 if ~isempty(ckeys_post)
@@ -332,30 +347,31 @@ if args.overlay_tdr
     end
 end
 
-% Plot pre-event tdr
-iCh = iCh + 1;
-msubplot(iCh,1:respCol,gs);
-tv = pre_ev_tdr1;
-mv = pre_ev_mov_idx1;
-tv(mv < args.motion_idx_bound(1) | mv > args.motion_idx_bound(2)) = nan;
-plot(sdata1.raw_t,pre_ev_tdr1,'k.','markersize',12)
-hold on
-plot(sdata1.raw_t,tv,'r.','markersize',12)
-if ~isempty(ckeys_post)&& ~isempty(mdata2)
-    % Motion thresholded data
-    mv = pre_ev_mov_idx2;
-    tv = pre_ev_tdr2;
+if args.plot_pre_event_data
+    % Plot pre-event tdr
+    iCh = iCh + 1;
+    msubplot(iCh,1:respCol,gs);
+    tv = pre_ev_tdr1;
+    mv = pre_ev_mov_idx1;
     tv(mv < args.motion_idx_bound(1) | mv > args.motion_idx_bound(2)) = nan;
-    plot(sdata2.raw_t,pre_ev_tdr2,'k.','markersize',12)
+    plot(sdata1.raw_t,pre_ev_tdr1,'k.','markersize',12)
     hold on
-    plot(sdata2.raw_t,tv,'r.','markersize',12)
-    mtop = quantile([pre_ev_tdr1(:)' pre_ev_tdr2(:)'],0.95);
-    ylim([-0.05*mtop mtop])
-    box off
-    xlim(xli)
-   ylabel('Pre stim \theta/\delta ratio','color',olaytd.col)
+    plot(sdata1.raw_t,tv,'r.','markersize',12)
+    if ~isempty(ckeys_post)&& ~isempty(mdata2)
+        % Motion thresholded data
+        mv = pre_ev_mov_idx2;
+        tv = pre_ev_tdr2;
+        tv(mv < args.motion_idx_bound(1) | mv > args.motion_idx_bound(2)) = nan;
+        plot(sdata2.raw_t,pre_ev_tdr2,'k.','markersize',12)
+        hold on
+        plot(sdata2.raw_t,tv,'r.','markersize',12)
+        mtop = quantile([pre_ev_tdr1(:)' pre_ev_tdr2(:)'],0.95);
+        ylim([-0.05*mtop mtop])
+        box off
+        xlim(xli)
+        ylabel('Pre stim \theta/\delta ratio','color',olaytd.col)
+    end
 end
-
 
 %%
 if args.plot_corr
@@ -488,8 +504,11 @@ stit = [sprintf('Mouse # %u:      ',key_pre.animal_id) [pre_str ' (pre)  ' post_
 
 suptitle(stit)
 if args.save
-    fn = sprintf('mouse_%u_%s',key_pre.animal_id,args.tit);
-    saveas(gcf,fn,'jpeg')
+    if ~exist(args.save_dir,'dir')
+        mkdir(args.save_dir)
+    end
+    fn = fullfile(args.save_dir,sprintf('mouse_%u_%s',key_pre.animal_id,args.tit));
+    saveas(gcf,fn,'png')
 end
 
 function [corr,best] = choose_best_correlated(acorr,datatype)

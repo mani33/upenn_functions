@@ -87,7 +87,16 @@ switch judge
         error('illegal judging method supplied')
 end
 
-[~,ch_ind] = max(measure);
+switch args.ch_amp_sel
+    case 'max'
+        [~,ch_ind] = max(measure);
+    case 'min'
+        [~,ch_ind] = min(measure);
+    case 'random'
+        ch_ind = ceil(rand*length(measure));
+    otherwise
+        error('unknown method')
+end
 
 best_pre_key = ckeys_pre(ch_ind);
 best_post_key = ckeys_post(ch_ind);

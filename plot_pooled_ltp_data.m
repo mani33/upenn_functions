@@ -1,9 +1,10 @@
-function [h2, sdata, mdata] = plot_pooled_ltp_data(keys_pre,keys_post,keys_day2,varargin)
+function [h2, sdata, mdata,skeys_pre,skeys_post] = plot_pooled_ltp_data(keys_pre,keys_post,keys_day2,varargin)
 % function plot_pooled_ltp_data(keys_pre,keys_post,keys_day2,varargin)
 % MS 2017-08-12
 args.half_errorbars = false;
 args.just_get_data_no_plotting = false;
 args.suptitle = '';
+args.plot_median = false;
 args.plot_pre = true;
 args.plot_tdr = false;
 args.remove_nrem = false;
@@ -26,6 +27,7 @@ args.slope_axes = [];
 % args.exclude_baseline_for_corr = 1;
 args.mks = 3; % marker size
 args.ch_sel_method = 'ltp_magnitude';
+args.ch_amp_sel = 'max'; % could be 'max' or 'min' or 'random'
 args.plot_corr = 0;
 args.plot_just_slope = 0;
 args.corr_cond = {'post'};
@@ -38,6 +40,8 @@ args.use_pre_event_motion = false;
 args.use_pre_event_tdr = false;
 args.slope_bw = 5;
 args.pre_event_win = 5;
+args.lmm_fitparams = []; % linear mixed model params - if given fits a model line
+args.plot_lmmfit = 0;
 args = parseVarArgs(args,varargin{:});
 sdata = struct;
 % Get the best channel for each pair of pre and post
@@ -63,10 +67,10 @@ nKeys = length(skeys_pre);
 for iKey = 1:nKeys
     args.all_motion_idx_bound(iKey,:) = get_common_motion_idx_bound(skeys_pre(iKey),skeys_post(iKey),args);
 end
-
-sdata.pre = get_pooled_binned_ltpdata(skeys_pre,'slopes',args,'invert_time',1);
-sdata.post = get_pooled_binned_ltpdata(skeys_post,'slopes',args,'invert_time',0);
-sdata.day2 = get_pooled_binned_ltpdata(skeys_day2,'slopes',args,'invert_time',0);
+alist = struct2argList(args);
+sdata.pre = get_pooled_binned_ltpdata(skeys_pre,'slopes',args,'invert_time',1,alist{:});
+sdata.post = get_pooled_binned_ltpdata(skeys_post,'slopes',args,'invert_time',0,alist{:});
+sdata.day2 = get_pooled_binned_ltpdata(skeys_day2,'slopes',args,'invert_time',0,alist{:});
 
 % Normalize slopes
 sdata = normalize_data_by_pre_mean(sdata);
@@ -74,9 +78,9 @@ sdata = normalize_data_by_pre_mean(sdata);
 
 
 % Motion
-mdata.pre = get_pooled_binned_ltpdata(skeys_pre,'motion',args,'invert_time',1);
-mdata.post = get_pooled_binned_ltpdata(skeys_post,'motion',args,'invert_time',0);
-mdata.day2 = get_pooled_binned_ltpdata(skeys_day2,'motion',args,'invert_time',0);
+mdata.pre = get_pooled_binned_ltpdata(skeys_pre,'motion',args,'invert_time',1,alist{:});
+mdata.post = get_pooled_binned_ltpdata(skeys_post,'motion',args,'invert_time',0,alist{:});
+mdata.day2 = get_pooled_binned_ltpdata(skeys_day2,'motion',args,'invert_time',0,alist{:});
 % Normalize if asked for
 if args.normalize_motion
     mdata = normalize_data_by_pre_mean(mdata);
@@ -87,9 +91,9 @@ if args.just_get_data_no_plotting
     return
 end
 % Theta delta ratio
-tddata.pre = get_pooled_binned_ltpdata(skeys_pre,'tdratio',args,'invert_time',1);
-tddata.post = get_pooled_binned_ltpdata(skeys_post,'tdratio',args,'invert_time',0);
-tddata.day2 = get_pooled_binned_ltpdata(skeys_day2,'tdratio',args,'invert_time',0);
+tddata.pre = get_pooled_binned_ltpdata(skeys_pre,'tdratio',args,'invert_time',1,alist{:});
+tddata.post = get_pooled_binned_ltpdata(skeys_post,'tdratio',args,'invert_time',0,alist{:});
+tddata.day2 = get_pooled_binned_ltpdata(skeys_day2,'tdratio',args,'invert_time',0,alist{:});
 
 
 % Finally, time to plot things
@@ -403,27 +407,36 @@ end
 nMice = size(ad1,2);
 
 % average now
-mad1 = nanmean(ad1,2);
-se1 = nanstd(ad1,[],2)/sqrt(nMice);
-mad2 = nanmean(ad2,2);
-se2 = nanstd(ad2,[],2)/sqrt(nMice);
-% mad3 = nanmean(ad3,2);
-% se3 = nanstd(ad3,[],2)/sqrt(nMice);
-
+if args.plot_median
+    mad1 = nanmedian(ad1,2);
+    iqrange = quantile(ad1,[0.25 0.75],2);
+    ebneg1 = abs(iqrange(:,1)-mad1);
+    ebpos1 = abs(iqrange(:,2)-mad1);
+    mad2 = nanmean(ad2,2);
+    iqrange = quantile(ad2,[0.25 0.75],2);
+    ebneg2 = abs(iqrange(:,1)-mad2);
+    ebpos2 = abs(iqrange(:,2)-mad2);
+else
+    mad1 = nanmean(ad1,2);
+    ebpos1 = nanstd(ad1,[],2)/sqrt(nMice);
+    mad2 = nanmean(ad2,2);
+    ebpos2 = nanstd(ad2,[],2)/sqrt(nMice);
+    ebneg1 = ebpos1;
+    ebneg2 = ebpos2;
+    if args.half_errorbars
+        ebneg1 = zeros(size(ebpos1));
+        ebneg2 = zeros(size(ebpos2));
+    end
+end
 
 axes(h)
 plot(t1,mad1,'O','color',precol,'markersize',args.mks,'markerfacecolor',precol)
 hold on
-ebneg1 = se1;
-ebneg2 = se2;
-if args.half_errorbars
-    ebneg1 = zeros(size(se1));
-    ebneg2 = zeros(size(se2));
-end
-errorbar(t1,mad1,ebneg1,se1,'color',precol,'linestyle','none')
+
+errorbar(t1,mad1,ebneg1,ebpos1,'color',precol,'linestyle','none')
 tadj = t2+args.rec_gap;
 plot(tadj,mad2,'O','color',postcol,'markersize',args.mks,'markerfacecolor',postcol)
-errorbar(tadj,mad2,ebneg2,se2,'color',postcol,'linestyle','none')
+errorbar(tadj,mad2,ebneg2,ebpos2,'color',postcol,'linestyle','none')
 
 % plot(t3,mad3,'O','color',postcol,'markersize',args.mks,'markerfacecolor',postcol)
 % errorbar(t3,mad3,se3,'color',postcol,'linestyle','none')
@@ -441,6 +454,25 @@ ylim([vmin vmax])
 box off
 grid on
 grid minor
+
+%% Plot regression line
+if args.plot_lmmfit    
+    b0 = args.lmm_fitparams(1);
+    b2 = args.lmm_fitparams(2);
+    b1 = args.lmm_fitparams(3);
+    b3 = args.lmm_fitparams(4);
+    toff = args.lmm_fitparams(5);    
+    hold on
+    tpost = 121:300-toff;
+    tpre = 1:120;
+    tsince = 1:180-toff;    
+    yhat_pre = b0 + b1*tpre;
+    yhat_post = (b0+b2)+ b1*tpost + b3*tsince;
+    plot(-119:0,yhat_pre,'b','linewidth',2)
+    plot((toff+1):180,yhat_post,'b','linewidth',2)
+end
+
+
 %%
 function plot_raw_data(dd,h,cmin,cmax,rev_col,colbar)
 axes(h)
@@ -493,6 +525,7 @@ for i = 1:n
         dd.day2.val = [];
     end
 end
+
 
 
 

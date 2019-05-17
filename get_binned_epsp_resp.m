@@ -11,7 +11,7 @@ args.keep_just_motion = 0;
 
 args = parseVarArgs(args,varargin{:});
 winstr = sprintf('win = %u',args.pre_event_win);
-if double(ch_key.session_start_time) ~= 5333866070    
+if double(ch_key.session_start_time) ~= 5333866070
     
     data = struct('raw_t',[],'raw_val',[],'bin_t',[],'bin_val',[]);
     tfac = (1e-6)/60; % to convert to min
@@ -34,15 +34,15 @@ if double(ch_key.session_start_time) ~= 5333866070
         t0 = traw(end);
     end
     
-%     % Apply motion threshold
-%     if args.pick_th
-%         args.motion_th = quantile(mov_idx,args.motion_th_quantile);
-%     end
-%     slopes(mov_idx < args.motion_th) = nan;
-nsel = mov_idx >= args.motion_idx_bound(1) & mov_idx <= args.motion_idx_bound(2);
+    %     % Apply motion threshold
+    %     if args.pick_th
+    %         args.motion_th = quantile(mov_idx,args.motion_th_quantile);
+    %     end
+    %     slopes(mov_idx < args.motion_th) = nan;
+    nsel = mov_idx >= args.motion_idx_bound(1) & mov_idx <= args.motion_idx_bound(2);
     slopes(~nsel) = nan;
     fprintf('mov: %0.2f -%0.2f\n',args.motion_idx_bound(1),args.motion_idx_bound(2))
-  
+    
     
     if args.keep_just_motion
         et = [ird.event_ts];
@@ -72,21 +72,21 @@ nsel = mov_idx >= args.motion_idx_bound(1) & mov_idx <= args.motion_idx_bound(2)
         rd.t = traw;
         rd.se = zeros(size(slopes));
     else
-%         if args.motion_th <=0
-%             bwstr = sprintf('slope_bw = %0.2f',bin_width);
-%             if args.keep_just_motion
-%                 rd = fetch(cstim.SlopeInMovBinned(ch_key,'smooth_method_num = 0',bwstr),'t','y','se');
-%                 if isempty(rd)
-%                     rd = fetch(cstim.SlopeInMovVidBinned(ch_key,'smooth_method_num = 0',bwstr),'t','y','se');
-%                 end
-%             else
-%                 rd = fetch(cstim.SlopeBinned(ch_key,'smooth_method_num = 0',bwstr),'t','y','se');
-%                 data.se = rd.se;
-%             end
-%         else
-            [rd.t,rd.y,data.se] = bin_resp(traw,slopes,args);
-            % Threshold motion
-%         end
+        %         if args.motion_th <=0
+        %             bwstr = sprintf('slope_bw = %0.2f',bin_width);
+        %             if args.keep_just_motion
+        %                 rd = fetch(cstim.SlopeInMovBinned(ch_key,'smooth_method_num = 0',bwstr),'t','y','se');
+        %                 if isempty(rd)
+        %                     rd = fetch(cstim.SlopeInMovVidBinned(ch_key,'smooth_method_num = 0',bwstr),'t','y','se');
+        %                 end
+        %             else
+        %                 rd = fetch(cstim.SlopeBinned(ch_key,'smooth_method_num = 0',bwstr),'t','y','se');
+        %                 data.se = rd.se;
+        %             end
+        %         else
+        [rd.t,rd.y,data.se] = bin_resp(traw,slopes,args);
+        % Threshold motion
+        %         end
     end
     if isempty(rd)
         warning('no SlopeBinned data found for given key')
@@ -135,6 +135,9 @@ end
 % Remove sleep
 if args.remove_sleep
     d = fetch(cont.SleepSegManual(ch_key),'*');
+    if count(cont.SleepSegManual(ch_key))==0
+        d = fetch(cont.SleepSegManualVid(ch_key),'*');
+    end
     d.seg_begin = (d.seg_begin-t0)*tfac;
     d.seg_end = (d.seg_end-t0)*tfac;
     nSeg = length(d.seg_begin);

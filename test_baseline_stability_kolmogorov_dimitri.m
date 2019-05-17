@@ -28,14 +28,14 @@ Di = nan(1,nBoot);
 for i = 1:nBoot
     sel = ceil(rand(1,n)*n);
     ds = d(sel);
-    if i==1
-    figure(1222)
-    plot(ds,'kO')
-    hold on
-    plot(d,'r*')
-    plot(1:length(d),100*ones(size(d)),'b.','markersize',5)
-    hold off
-    end
+%     if i==1
+%     figure(1222)
+%     plot(ds,'kO')
+%     hold on
+%     plot(d,'r*')
+%     plot(1:length(d),100*ones(size(d)),'b.','markersize',5)
+%     hold off
+%     end
     csdata = cumsum(ds);
     Di(i) = max(abs(csdata-csmodel));
 end

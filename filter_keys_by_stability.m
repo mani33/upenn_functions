@@ -12,6 +12,7 @@ tmp = struct;
 for i = 1:size(tmp.sdata.pre.val,2)
     tmp.p(i) = test_baseline_stability_kolmogorov_dimitri(tmp.sdata.pre.val(:,i),'debug',0);
 end
+p = tmp.p;
 %%
 fkeys_pre = keys_pre(tmp.p > alpha);
 fkeys_post = keys_post(tmp.p > alpha);

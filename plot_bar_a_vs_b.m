@@ -35,15 +35,15 @@ else
         Y = [adata bdata];
         plot(X',Y','kO-','markerfacecolor','k')
     else
-        plot(ones(1,lena),adata,'O','color','k','markerfacecolor','k')
-        plot(2*ones(1,lenb),bdata,'kO','markerfacecolor','k')
+        plot(ones(1,lena)+normrnd(0,0.07,1,lena),adata,'O','color',mgray,'markerfacecolor','k')
+        plot(2*ones(1,lenb)+normrnd(0,0.07,1,lenb),bdata,'O','color',mgray,'markerfacecolor','k')
     end
 end
 hold on
 if args.paired
-        X = repmat([1 2],length(adata),1);
-        Y = [adata bdata];
-        plot(X',Y','kO-','markerfacecolor','k')
+    X = repmat([1 2],length(adata),1);
+    Y = [adata bdata];
+    plot(X',Y','kO-','markerfacecolor','k')
 end
 set(gca,'linewidth',1,'fontsize',14)
 box off
@@ -52,8 +52,12 @@ if args.show_legend
     set(leg,'box','off')
 end
 if args.show_stat
-    [h,p] = ttest2(adata,bdata);
-    text(2.2,88,sprintf('n = %0.0f,%0.0f;  p = %0.2f',lena,lenb,p))
+    if args.paired
+        [~,p] = ttest(adata,bdata);
+    else
+        [~,p] = ttest2(adata,bdata);
+    end
+    text(2.2,70,sprintf('n = %0.0f,%0.0f;  p = %0.2f',lena,lenb,p))
 end
 ylabel(args.ylabel)
 set(gca,'xtick',[1 2],'xticklabel',condStr)
